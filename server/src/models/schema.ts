@@ -19,7 +19,8 @@ export const OrganizerSchema = new Schema<IOrganizer>({
 export const OrganizerModel = mongoose.model<IOrganizer>('Organizer', OrganizerSchema);
 
 // Question Schema
-export interface IQuestion extends Document {
+export interface IQuestion {
+  _id?: string;
   title: string;
   imageA: string;
   imageB: string;
@@ -31,6 +32,7 @@ export interface IQuestion extends Document {
 }
 
 export const QuestionSchema = new Schema<IQuestion>({
+  _id: { type: String },
   title: { type: String, required: true },
   imageA: { type: String, required: true },
   imageB: { type: String, required: true },

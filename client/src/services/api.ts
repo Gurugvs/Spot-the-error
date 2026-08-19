@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { RoomDTO, RoomSettings, QuestionDTO, WinnerSummary, AnalyticsData } from '../../../shared/types';
+import { RoomDTO, RoomSettings, QuestionDTO, WinnerSummary, AnalyticsData, ParticipantDTO } from '../../../shared/types';
 import { FALLBACK_SEED_QUESTIONS } from './seedQuestions';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || '';
@@ -37,6 +37,32 @@ function saveLocalStoredRoom(room: RoomDTO) {
     const rooms = getLocalStoredRooms().filter(r => r.roomCode !== room.roomCode);
     rooms.unshift(room);
     localStorage.setItem('spot_local_rooms', JSON.stringify(rooms));
+  } catch (e) {}
+}
+
+export function getLocalParticipants(roomCode: string): ParticipantDTO[] {
+  try {
+    const raw = localStorage.getItem(`spot_participants_${roomCode.toUpperCase()}`);
+    const list: ParticipantDTO[] = raw ? JSON.parse(raw) : [];
+    const lastP = localStorage.getItem('spot_last_participant');
+    if (lastP) {
+      const parsed = JSON.parse(lastP);
+      if (parsed.roomCode?.toUpperCase() === roomCode.toUpperCase() && !list.find(p => p.participantId === parsed.participantId)) {
+        list.push(parsed);
+      }
+    }
+    return list;
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveLocalParticipant(roomCode: string, participant: ParticipantDTO) {
+  try {
+    const code = roomCode.toUpperCase();
+    const list = getLocalParticipants(code).filter(p => p.participantId !== participant.participantId);
+    list.push(participant);
+    localStorage.setItem(`spot_participants_${code}`, JSON.stringify(list));
   } catch (e) {}
 }
 
@@ -168,9 +194,9 @@ export const roomApi = {
   getParticipants: async (roomCode: string) => {
     try {
       const res = await api.get(`/rooms/${roomCode}/participants`);
-      if (Array.isArray(res.data?.participants)) return res.data.participants;
+      if (Array.isArray(res.data?.participants) && res.data.participants.length > 0) return res.data.participants;
     } catch (e) {}
-    return [];
+    return getLocalParticipants(roomCode);
   },
 };
 

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { socketService } from '../services/socket';
 import { useGame } from '../context/GameContext';
+import { saveLocalParticipant } from '../services/api';
 
 export const ParticipantJoinPage: React.FC = () => {
   const navigate = useNavigate();
@@ -59,6 +60,7 @@ export const ParticipantJoinPage: React.FC = () => {
         localStorage.setItem('spot_last_participant', JSON.stringify(res.participant));
 
         setParticipant(res.participant);
+        saveLocalParticipant(cleanCode, res.participant);
 
         // If game is already active, transition directly to game view
         if (res.gameState && res.gameState.status === 'active') {

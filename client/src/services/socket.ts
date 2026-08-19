@@ -81,6 +81,15 @@ class SocketService {
             joinedAt: new Date().toISOString()
           };
 
+          try {
+            const raw = localStorage.getItem(`spot_participants_${cleanCode}`);
+            const list: ParticipantDTO[] = raw ? JSON.parse(raw) : [];
+            if (!list.find(p => p.participantId === fallbackParticipant.participantId)) {
+              list.push(fallbackParticipant);
+              localStorage.setItem(`spot_participants_${cleanCode}`, JSON.stringify(list));
+            }
+          } catch (e) {}
+
           const firstQ = FALLBACK_SEED_QUESTIONS[0];
           resolve({
             success: true,

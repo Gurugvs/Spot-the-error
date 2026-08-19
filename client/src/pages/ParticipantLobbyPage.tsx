@@ -17,36 +17,65 @@ export const ParticipantLobbyPage: React.FC = () => {
   const [currentParticipant, setCurrentParticipant] = useState<ParticipantDTO | null>(participant);
 
   useEffect(() => {
-    // Restore participant from local storage if page reloaded
-    if (!currentParticipant) {
+    let p = currentParticipant;
+    if (!p) {
       const saved = localStorage.getItem('spot_last_participant');
       if (saved) {
         try {
-          const parsed = JSON.parse(saved);
-          setCurrentParticipant(parsed);
-          setParticipant(parsed);
+          p = JSON.parse(saved);
+          setCurrentParticipant(p);
+          setParticipant(p);
         } catch (e) {}
       }
     }
 
-    async function init() {
-      try {
-        const r = await roomApi.getRoomByCode(code);
-        if (r) setEventName(r.eventName);
-        const pList = await roomApi.getParticipants(code);
-        setPlayerCount(pList.length);
-      } catch (e) {}
+    if (!p) {
+      // If no participant info found, redirect to join page
+      navigate(`/join?room=${code}`);
+      return;
     }
-    init();
 
+    // Ensure socket joins this room channel
     const socket = socketService.getSocket();
 
+    const joinRoomChannel = async () => {
+      if (p) {
+        const res = await socketService.joinRoom(code, p.name, p.participantId, p.sessionId);
+        if (res?.gameState && res.gameState.status === 'active') {
+          navigate(`/participant/game/${code}`);
+        }
+      }
+    };
+
+    joinRoomChannel();
+
+    async function fetchLobbyInfo() {
+      try {
+        const r = await roomApi.getRoomByCode(code);
+        if (r) {
+          setEventName(r.eventName);
+          if (r.status === 'active') {
+            navigate(`/participant/game/${code}`);
+          }
+        }
+        const pList = await roomApi.getParticipants(code);
+        setPlayerCount(Math.max(1, pList.length));
+      } catch (e) {}
+    }
+
+    fetchLobbyInfo();
+
+    // Periodic check in case game starts while in background
+    const interval = setInterval(fetchLobbyInfo, 3000);
+
+    socket.on('connect', joinRoomChannel);
+
     socket.on('participant_joined', (data) => {
-      setPlayerCount(data.totalCount);
+      setPlayerCount(Math.max(1, data.totalCount));
     });
 
     socket.on('participant_left', (data) => {
-      setPlayerCount(data.totalCount);
+      setPlayerCount(Math.max(1, data.totalCount));
     });
 
     // Auto-Transition to Game when organizer starts
@@ -60,6 +89,8 @@ export const ParticipantLobbyPage: React.FC = () => {
     });
 
     return () => {
+      clearInterval(interval);
+      socket.off('connect', joinRoomChannel);
       socket.off('participant_joined');
       socket.off('participant_left');
       socket.off('question_started');
