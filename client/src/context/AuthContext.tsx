@@ -38,7 +38,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return true;
       }
       return false;
-    } catch (e) {
+    } catch (e: any) {
+      // Fallback for static hostings (Netlify/Vercel) when backend is offline
+      if (username.trim().toLowerCase() === 'admin' && pass === 'admin123') {
+        const fallbackUser = { username: 'admin', role: 'organizer' };
+        localStorage.setItem('spot_admin_token', 'local_demo_admin_token');
+        localStorage.setItem('spot_admin_user', JSON.stringify(fallbackUser));
+        setUser(fallbackUser);
+        return true;
+      }
       return false;
     }
   };
