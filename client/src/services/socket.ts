@@ -2,12 +2,13 @@ import { io, Socket } from 'socket.io-client';
 import { 
   ServerToClientEvents, 
   ClientToServerEvents, 
-  AnswerSubmission,
-  AnswerResult,
-  RoomDTO,
-  ParticipantDTO,
-  GameStateDTO
+  AnswerSubmission, 
+  AnswerResult, 
+  RoomDTO, 
+  ParticipantDTO, 
+  GameStateDTO 
 } from '../../../shared/types';
+import { FALLBACK_SEED_QUESTIONS } from './seedQuestions';
 
 class SocketService {
   private socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
@@ -19,8 +20,9 @@ class SocketService {
       this.socket = io(BACKEND_URL, {
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 10,
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
+        timeout: 5000,
         transports: ['websocket', 'polling']
       });
 
@@ -30,6 +32,10 @@ class SocketService {
 
       this.socket.on('disconnect', (reason) => {
         console.log('⚠️ [Socket] Disconnected:', reason);
+      });
+
+      this.socket.on('connect_error', (err) => {
+        console.warn('⚠️ [Socket] Connection error (using offline fallback if on static host):', err.message);
       });
     }
     return this.socket;
@@ -49,36 +55,208 @@ class SocketService {
     sessionId?: string
   ): Promise<{ success: boolean; participant?: ParticipantDTO; gameState?: GameStateDTO; error?: string }> {
     const s = this.getSocket();
+    const cleanCode = roomCode.trim().toUpperCase();
+
     return new Promise((resolve) => {
-      s.emit('join_room', { roomCode, name, rollNumber, sessionId }, (res) => {
-        resolve(res);
+      let resolved = false;
+
+      // 2.5s Timeout fallback for static hosts without a live backend
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          const assignedSession = sessionId || `session_${Date.now()}`;
+          const fallbackParticipant: ParticipantDTO = {
+            id: `p_${Date.now()}`,
+            roomId: cleanCode,
+            roomCode: cleanCode,
+            name,
+            participantId: rollNumber || name,
+            sessionId: assignedSession,
+            status: 'connected',
+            score: 0,
+            correctAnswers: 0,
+            wrongAnswers: 0,
+            differencesFoundCount: 0,
+            totalTime: 0,
+            joinedAt: new Date().toISOString()
+          };
+
+          const firstQ = FALLBACK_SEED_QUESTIONS[0];
+          resolve({
+            success: true,
+            participant: fallbackParticipant,
+            gameState: {
+              roomCode: cleanCode,
+              status: 'waiting',
+              currentQuestionIndex: 1,
+              totalQuestions: FALLBACK_SEED_QUESTIONS.length,
+              currentQuestion: {
+                id: firstQ.id,
+                title: firstQ.title,
+                imageA: firstQ.imageA,
+                imageB: firstQ.imageB,
+                difficulty: firstQ.difficulty,
+                timeLimit: firstQ.timeLimit,
+                points: firstQ.points,
+                totalDifferences: firstQ.totalDifferences
+              },
+              timeRemaining: firstQ.timeLimit || 30,
+              isPaused: false,
+              foundDifferenceIds: []
+            }
+          });
+        }
+      }, 2500);
+
+      s.emit('join_room', { roomCode: cleanCode, name, rollNumber, sessionId }, (res) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(res);
+        }
       });
     });
   }
 
   public observeRoom(roomCode: string): Promise<any> {
     const s = this.getSocket();
+    const cleanCode = roomCode.trim().toUpperCase();
+
     return new Promise((resolve) => {
-      s.emit('observe_room' as any, { roomCode }, (res: any) => {
-        resolve(res);
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve({
+            success: true,
+            room: {
+              id: `room_${cleanCode.toLowerCase()}`,
+              roomCode: cleanCode,
+              eventName: 'Spot The Errors',
+              roundName: 'Round 1',
+              status: 'waiting',
+              participantCount: 1,
+              totalQuestions: FALLBACK_SEED_QUESTIONS.length,
+              currentQuestionIndex: 0,
+              createdAt: new Date().toISOString()
+            },
+            participants: [],
+            leaderboard: []
+          });
+        }
+      }, 2500);
+
+      s.emit('observe_room' as any, { roomCode: cleanCode }, (res: any) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(res);
+        }
       });
     });
   }
 
   public getGameState(roomCode: string, sessionId?: string): Promise<any> {
     const s = this.getSocket();
+    const cleanCode = roomCode.trim().toUpperCase();
+
     return new Promise((resolve) => {
-      s.emit('get_game_state' as any, { roomCode, sessionId }, (res: any) => {
-        resolve(res);
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          const firstQ = FALLBACK_SEED_QUESTIONS[0];
+          resolve({
+            gameState: {
+              roomCode: cleanCode,
+              status: 'active',
+              currentQuestionIndex: 1,
+              totalQuestions: FALLBACK_SEED_QUESTIONS.length,
+              currentQuestion: {
+                id: firstQ.id,
+                title: firstQ.title,
+                imageA: firstQ.imageA,
+                imageB: firstQ.imageB,
+                difficulty: firstQ.difficulty,
+                timeLimit: firstQ.timeLimit,
+                points: firstQ.points,
+                totalDifferences: firstQ.totalDifferences
+              },
+              timeRemaining: firstQ.timeLimit || 30,
+              isPaused: false,
+              foundDifferenceIds: []
+            }
+          });
+        }
+      }, 2000);
+
+      s.emit('get_game_state' as any, { roomCode: cleanCode, sessionId }, (res: any) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(res);
+        }
       });
     });
   }
 
   public submitAnswer(submission: AnswerSubmission): Promise<AnswerResult> {
     const s = this.getSocket();
+
     return new Promise((resolve) => {
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+
+          // Local offline hit-testing fallback
+          const targetQ = FALLBACK_SEED_QUESTIONS.find(q => q.id === submission.questionId) || FALLBACK_SEED_QUESTIONS[0];
+          const TOLERANCE = 5.0;
+          let matched = null;
+
+          for (const region of (targetQ.differenceRegions || [])) {
+            const minX = region.x - region.width / 2 - TOLERANCE;
+            const maxX = region.x + region.width / 2 + TOLERANCE;
+            const minY = region.y - region.height / 2 - TOLERANCE;
+            const maxY = region.y + region.height / 2 + TOLERANCE;
+
+            if (submission.x >= minX && submission.x <= maxX && submission.y >= minY && submission.y <= maxY) {
+              matched = region;
+              break;
+            }
+          }
+
+          if (matched) {
+            resolve({
+              correct: true,
+              differenceId: matched.id,
+              differenceName: matched.name,
+              region: matched,
+              scoreGained: 10,
+              currentScore: 10,
+              differencesFoundCount: 1,
+              totalDifferences: targetQ.totalDifferences,
+              message: `Spot on! +10 pts`
+            });
+          } else {
+            resolve({
+              correct: false,
+              scoreGained: 0,
+              currentScore: 0,
+              differencesFoundCount: 0,
+              totalDifferences: targetQ.totalDifferences,
+              message: `No difference here!`
+            });
+          }
+        }
+      }, 2000);
+
       s.emit('submit_answer', submission, (res) => {
-        resolve(res);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(res);
+        }
       });
     });
   }
