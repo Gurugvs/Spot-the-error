@@ -37,10 +37,13 @@ export const CreateRoomPage: React.FC = () => {
     async function loadQuestions() {
       try {
         const qList = await questionApi.getQuestions();
-        setQuestions(qList);
-        setSelectedQuestionIds(qList.map(q => q.id)); // default select all
+        const safeList = Array.isArray(qList) && qList.length > 0 ? qList : [];
+        setQuestions(safeList);
+        setSelectedQuestionIds(safeList.map(q => q.id)); // default select all
       } catch (e) {
         console.error('Failed to load questions', e);
+        setQuestions([]);
+        setSelectedQuestionIds([]);
       }
     }
     loadQuestions();

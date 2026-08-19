@@ -28,9 +28,10 @@ export const OrganizerDashboard: React.FC = () => {
     try {
       setLoading(true);
       const data = await roomApi.getRooms();
-      setRooms(data);
+      setRooms(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('Failed to load rooms', e);
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -40,9 +41,10 @@ export const OrganizerDashboard: React.FC = () => {
     fetchRooms();
   }, []);
 
-  const totalParticipants = rooms.reduce((acc, r) => acc + (r.participantCount || 0), 0);
-  const activeRooms = rooms.filter(r => r.status === 'active' || r.status === 'waiting');
-  const completedRooms = rooms.filter(r => r.status === 'completed');
+  const safeRooms = Array.isArray(rooms) ? rooms : [];
+  const totalParticipants = safeRooms.reduce((acc, r) => acc + (r.participantCount || 0), 0);
+  const activeRooms = safeRooms.filter(r => r.status === 'active' || r.status === 'waiting');
+  const completedRooms = safeRooms.filter(r => r.status === 'completed');
 
   // Fast 1-Click "Load Demo Game"
   const handleLoadDemoGame = async () => {
@@ -199,14 +201,14 @@ export const OrganizerDashboard: React.FC = () => {
                     Loading competition rooms...
                   </td>
                 </tr>
-              ) : rooms.length === 0 ? (
+              ) : safeRooms.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-500">
                     No game rooms created yet. Click "Create New Room" or "Load Instant Demo Room" to start!
                   </td>
                 </tr>
               ) : (
-                rooms.map((room) => (
+                safeRooms.map((room) => (
                   <tr key={room.id} className="hover:bg-surface-card/60 transition-colors">
                     <td className="py-3.5 px-4 sm:px-6 font-display font-black text-white text-base tracking-wider">
                       {room.roomCode}

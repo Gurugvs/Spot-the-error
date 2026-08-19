@@ -23,9 +23,10 @@ export const QuestionManagementPage: React.FC = () => {
     try {
       setLoading(true);
       const data = await questionApi.getQuestions();
-      setQuestions(data);
+      setQuestions(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('Failed to load questions', e);
+      setQuestions([]);
     } finally {
       setLoading(false);
     }
