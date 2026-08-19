@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-background: #090d16;
+    --color-surface: #111827;
+    --color-surface-card: #1a2234;
+    --color-surface-border: #2a3449;
+    --color-primary: #8b5cf6;
+    --color-secondary: #06b6d4;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: #f1f5f9;
+    overflow-x: hidden;
+    touch-action: manipulation;
+  }
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: rgba(26, 34, 52, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-glow {
+  background: rgba(26, 34, 52, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glow-text-primary {
+  text-shadow: 0 0 20px rgba(139, 92, 246, 0.6);
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a3449;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8b5cf6;
+}
+
+/* Prevent double-tap zoom on game canvas */
+.no-zoom {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}

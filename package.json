@@ -1,0 +1,31 @@
+{
+  "name": "spot-the-errors-platform",
+  "version": "1.0.0",
+  "description": "Production-ready live multiplayer Spot The Errors competition platform for college events",
+  "main": "server/src/server.ts",
+  "scripts": {
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "install:all": "npm install && npm install --workspace=server && npm install --workspace=client",
+    "server": "npm run dev --workspace=server",
+    "client": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=server && npm run build --workspace=client",
+    "test": "npm run test --workspace=server"
+  },
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "spot-the-difference",
+    "realtime-multiplayer",
+    "socketio",
+    "react",
+    "college-event",
+    "game-show"
+  ],
+  "author": "Google Deepmind & Antigravity",
+  "license": "MIT"
+}
