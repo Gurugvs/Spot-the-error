@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { RoomDTO, RoomSettings, QuestionDTO, WinnerSummary, AnalyticsData } from '../../../shared/types';
 
-const API_BASE = '/api';
+const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || '';
+const API_BASE = BACKEND_URL ? `${BACKEND_URL.replace(/\/$/, '')}/api` : '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -81,8 +82,8 @@ export const resultsApi = {
     const res = await api.get(`/results/${roomCode}`);
     return res.data;
   },
-  getExportExcelUrl: (roomCode: string) => `/api/export/excel/${roomCode}`,
-  getExportCsvUrl: (roomCode: string) => `/api/export/csv/${roomCode}`,
+  getExportExcelUrl: (roomCode: string) => `${API_BASE}/export/excel/${roomCode}`,
+  getExportCsvUrl: (roomCode: string) => `${API_BASE}/export/csv/${roomCode}`,
 };
 
 export default api;

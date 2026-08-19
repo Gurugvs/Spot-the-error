@@ -14,8 +14,9 @@ class SocketService {
 
   public connect(): Socket<ServerToClientEvents, ClientToServerEvents> {
     if (!this.socket) {
-      // Connect to current host origin or proxy
-      this.socket = io({
+      const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || undefined;
+      // Connect to specified backend URL or current host origin
+      this.socket = io(BACKEND_URL, {
         autoConnect: true,
         reconnection: true,
         reconnectionAttempts: 10,
