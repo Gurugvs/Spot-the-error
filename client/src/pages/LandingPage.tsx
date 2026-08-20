@@ -12,7 +12,7 @@ import {
   Layers, 
   ShieldCheck 
 } from 'lucide-react';
-import { SEED_QUESTIONS } from '../../../server/src/services/SeedData';
+import { SEED_QUESTIONS } from '../../../shared/seedData';
 import { DualImageSpotter } from '../components/DualImageSpotter';
 
 export const LandingPage: React.FC = () => {

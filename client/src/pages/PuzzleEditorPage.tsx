@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ImageAnnotationEditor } from '../components/ImageAnnotationEditor';
 import { questionApi } from '../services/api';
 import { QuestionDTO } from '../../../shared/types';
-import { SEED_QUESTIONS } from '../../../server/src/services/SeedData';
+import { SEED_QUESTIONS } from '../../../shared/seedData';
 
 export const PuzzleEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
