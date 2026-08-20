@@ -14,6 +14,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0', // Allow testing over local network on mobile devices
+    allowedHosts: true, // Allow ngrok and tunnel domains without host header restrictions
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
