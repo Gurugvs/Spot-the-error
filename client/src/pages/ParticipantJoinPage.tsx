@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { socketService } from '../services/socket';
 import { useGame } from '../context/GameContext';
-import { saveLocalParticipant } from '../services/api';
+import { saveLocalParticipant, setCustomBackendUrl } from '../services/api';
 
 export const ParticipantJoinPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,6 +25,11 @@ export const ParticipantJoinPage: React.FC = () => {
     const queryRoom = searchParams.get('room');
     if (queryRoom) {
       setRoomCode(queryRoom.toUpperCase());
+    }
+    const queryBackend = searchParams.get('backend');
+    if (queryBackend) {
+      setCustomBackendUrl(queryBackend);
+      socketService.reconnect();
     }
   }, [searchParams]);
 

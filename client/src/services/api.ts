@@ -2,11 +2,33 @@ import axios from 'axios';
 import { RoomDTO, RoomSettings, QuestionDTO, WinnerSummary, AnalyticsData, ParticipantDTO } from '../../../shared/types';
 import { FALLBACK_SEED_QUESTIONS } from './seedQuestions';
 
-const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || '';
-const API_BASE = BACKEND_URL ? `${BACKEND_URL.replace(/\/$/, '')}/api` : '/api';
+export function getBackendUrl(): string {
+  const envUrl = (import.meta as any).env.VITE_BACKEND_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    return envUrl.trim().replace(/\/$/, '');
+  }
+  const customUrl = localStorage.getItem('spot_custom_backend_url');
+  if (customUrl && typeof customUrl === 'string' && customUrl.trim()) {
+    return customUrl.trim().replace(/\/$/, '');
+  }
+  return '';
+}
+
+export function getApiBase(): string {
+  return getBackendUrl() ? `${getBackendUrl()}/api` : '/api';
+}
+
+export function setCustomBackendUrl(url: string) {
+  if (url && url.trim()) {
+    localStorage.setItem('spot_custom_backend_url', url.trim().replace(/\/$/, ''));
+  } else {
+    localStorage.removeItem('spot_custom_backend_url');
+  }
+  api.defaults.baseURL = getApiBase();
+}
 
 const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: getBackendUrl() ? `${getBackendUrl()}/api` : '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -319,8 +341,8 @@ export const resultsApi = {
     };
   },
 
-  getExportExcelUrl: (roomCode: string) => `${API_BASE}/export/excel/${roomCode}`,
-  getExportCsvUrl: (roomCode: string) => `${API_BASE}/export/csv/${roomCode}`,
+  getExportExcelUrl: (roomCode: string) => `${getApiBase()}/export/excel/${roomCode}`,
+  getExportCsvUrl: (roomCode: string) => `${getApiBase()}/export/csv/${roomCode}`,
 };
 
 export default api;

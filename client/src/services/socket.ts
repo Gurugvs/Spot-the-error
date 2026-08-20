@@ -9,20 +9,27 @@ import {
   GameStateDTO 
 } from '../../../shared/types';
 import { FALLBACK_SEED_QUESTIONS } from './seedQuestions';
+import { getBackendUrl, getLocalParticipants } from './api';
 
 class SocketService {
   private socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-  public connect(): Socket<ServerToClientEvents, ClientToServerEvents> {
-    if (!this.socket) {
-      const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || undefined;
+  public connect(forceNew = false): Socket<ServerToClientEvents, ClientToServerEvents> {
+    if (!this.socket || forceNew) {
+      if (this.socket) {
+        try {
+          this.socket.disconnect();
+        } catch (e) {}
+      }
+      const backendUrl = getBackendUrl() || undefined;
+      console.log('⚡ [Socket] Connecting to backend URL:', backendUrl || '(current host)');
       // Connect to specified backend URL or current host origin
-      this.socket = io(BACKEND_URL, {
+      this.socket = io(backendUrl, {
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        timeout: 5000,
+        timeout: 6000,
         transports: ['websocket', 'polling']
       });
 
@@ -39,6 +46,14 @@ class SocketService {
       });
     }
     return this.socket;
+  }
+
+  public isConnected(): boolean {
+    return !!(this.socket && this.socket.connected);
+  }
+
+  public reconnect(): Socket<ServerToClientEvents, ClientToServerEvents> {
+    return this.connect(true);
   }
 
   public getSocket(): Socket<ServerToClientEvents, ClientToServerEvents> {
@@ -136,6 +151,7 @@ class SocketService {
       const timer = setTimeout(() => {
         if (!resolved) {
           resolved = true;
+          const localPs = getLocalParticipants(cleanCode);
           resolve({
             success: true,
             room: {
@@ -144,12 +160,12 @@ class SocketService {
               eventName: 'Spot The Errors',
               roundName: 'Round 1',
               status: 'waiting',
-              participantCount: 1,
+              participantCount: localPs.length,
               totalQuestions: FALLBACK_SEED_QUESTIONS.length,
               currentQuestionIndex: 0,
               createdAt: new Date().toISOString()
             },
-            participants: [],
+            participants: localPs,
             leaderboard: []
           });
         }

@@ -4,7 +4,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import { 
   Users, 
   Play, 
-  Sparkles, 
   Copy, 
   Check, 
   Maximize2, 
@@ -12,11 +11,14 @@ import {
   UserPlus, 
   UserMinus, 
   Wifi, 
+  WifiOff,
   ArrowLeft,
-  Share2
+  Settings,
+  Server,
+  X
 } from 'lucide-react';
 import { socketService } from '../services/socket';
-import { roomApi } from '../services/api';
+import { roomApi, getBackendUrl, setCustomBackendUrl } from '../services/api';
 import { RoomDTO, ParticipantDTO } from '../../../shared/types';
 import { QRModal } from '../components/QRModal';
 
@@ -30,17 +32,23 @@ export const RoomLobbyPage: React.FC = () => {
   const [copied, setCopied] = useState<boolean>(false);
   const [qrModalOpen, setQrModalOpen] = useState<boolean>(false);
   const [addingBots, setAddingBots] = useState<boolean>(false);
+  const [isServerConnected, setIsServerConnected] = useState<boolean>(socketService.isConnected());
+  const [serverModalOpen, setServerModalOpen] = useState<boolean>(false);
+  const [backendUrlInput, setBackendUrlInput] = useState<string>(getBackendUrl());
 
   const code = (roomCode || '').toUpperCase();
-  const joinUrl = `${window.location.origin}/join?room=${code}`;
+  const currentBackend = getBackendUrl();
+  const joinUrl = currentBackend
+    ? `${window.location.origin}/join?room=${code}&backend=${encodeURIComponent(currentBackend)}`
+    : `${window.location.origin}/join?room=${code}`;
 
   useEffect(() => {
     async function loadData() {
       try {
         const r = await roomApi.getRoomByCode(code);
-        setRoom(r);
+        if (r) setRoom(r);
         const pList = await roomApi.getParticipants(code);
-        setParticipants(pList);
+        if (pList) setParticipants(pList);
       } catch (e) {
         console.error('Failed to load room data', e);
       } finally {
@@ -52,12 +60,33 @@ export const RoomLobbyPage: React.FC = () => {
 
     // Socket Connection & Real-Time Observation
     const socket = socketService.getSocket();
+    setIsServerConnected(socket.connected);
+
     socketService.observeRoom(code).then((res) => {
       if (res?.success) {
-        setRoom(res.room);
-        setParticipants(res.participants);
+        if (res.room) setRoom(res.room);
+        if (res.participants && res.participants.length > 0) {
+          setParticipants(prev => {
+            const map = new Map<string, ParticipantDTO>();
+            prev.forEach(p => map.set(p.participantId, p));
+            res.participants.forEach((p: ParticipantDTO) => map.set(p.participantId, p));
+            return Array.from(map.values());
+          });
+        }
       }
     });
+
+    const onConnect = () => {
+      setIsServerConnected(true);
+      socketService.observeRoom(code);
+    };
+
+    const onDisconnect = () => {
+      setIsServerConnected(false);
+    };
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
 
     // Listen for incoming live participants
     socket.on('participant_joined', (data) => {
@@ -83,7 +112,26 @@ export const RoomLobbyPage: React.FC = () => {
       navigate(`/admin/game/${code}`);
     });
 
+    // Polling interval (every 2.5s) to guarantee updates if on static or recovering connections
+    const pollTimer = setInterval(async () => {
+      try {
+        setIsServerConnected(socket.connected);
+        const pList = await roomApi.getParticipants(code);
+        if (pList && pList.length > 0) {
+          setParticipants(prev => {
+            const map = new Map<string, ParticipantDTO>();
+            prev.forEach((p: ParticipantDTO) => map.set(p.participantId, p));
+            pList.forEach((p: ParticipantDTO) => map.set(p.participantId, p));
+            return Array.from(map.values());
+          });
+        }
+      } catch (e) {}
+    }, 2500);
+
     return () => {
+      clearInterval(pollTimer);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
       socket.off('participant_joined');
       socket.off('participant_left');
       socket.off('participant_status_updated');
@@ -117,6 +165,14 @@ export const RoomLobbyPage: React.FC = () => {
     }
   };
 
+  const handleSaveBackendUrl = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCustomBackendUrl(backendUrlInput);
+    socketService.reconnect();
+    setServerModalOpen(false);
+    window.location.reload();
+  };
+
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Top Header */}
@@ -141,12 +197,35 @@ export const RoomLobbyPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Projector Presentation Mode Button */}
-        <div className="flex items-center gap-3">
+        {/* Server Status & Controls */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setServerModalOpen(true)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold border flex items-center gap-2 transition-all ${
+              isServerConnected
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                : 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20 animate-pulse'
+            }`}
+            title="Configure Real-Time Backend Server"
+          >
+            {isServerConnected ? (
+              <>
+                <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Live Server Online</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3.5 h-3.5 text-amber-400" />
+                <span>Server Disconnected — Click to Connect</span>
+              </>
+            )}
+            <Settings className="w-3 h-3 opacity-70 ml-1" />
+          </button>
+
           <Link
             to={`/admin/room/${code}/presentation`}
             target="_blank"
-            className="px-4 py-2.5 rounded-xl bg-surface-card hover:bg-surface-border text-secondary-light font-bold text-sm border border-secondary/30 hover:border-secondary flex items-center gap-2 transition-all shadow-md shadow-secondary/10"
+            className="px-4 py-2 rounded-xl bg-surface-card hover:bg-surface-border text-secondary-light font-bold text-sm border border-secondary/30 hover:border-secondary flex items-center gap-2 transition-all shadow-md shadow-secondary/10"
           >
             <Tv className="w-4 h-4 text-secondary" />
             Launch Projector Mode
@@ -257,7 +336,7 @@ export const RoomLobbyPage: React.FC = () => {
                 >
                   <div className="flex items-center gap-3 truncate">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary/30 to-secondary/30 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                      {p.name.charAt(0).toUpperCase()}
+                      {p.name ? p.name.charAt(0).toUpperCase() : '?'}
                     </div>
                     <div className="truncate">
                       <span className="block font-bold text-xs text-white truncate">{p.name}</span>
@@ -285,7 +364,75 @@ export const RoomLobbyPage: React.FC = () => {
         </div>
       </div>
 
-      {/* QR Modal */}
+      {/* Backend URL Configuration Modal */}
+      {serverModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-lg glass-panel p-6 sm:p-8 rounded-3xl border border-surface-border shadow-2xl space-y-6 animate-scale-up">
+            <button
+              onClick={() => setServerModalOpen(false)}
+              className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-border"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-primary/20 text-primary flex items-center justify-center">
+                <Server className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-display font-bold text-white">
+                  Real-Time Server Connection
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Connect mobile phones and laptops through your live backend
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveBackendUrl} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300">
+                  Backend Server URL (e.g. Render / Local Network)
+                </label>
+                <input
+                  type="text"
+                  value={backendUrlInput}
+                  onChange={(e) => setBackendUrlInput(e.target.value)}
+                  placeholder="https://spot-the-errors-backend.onrender.com"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-dark border border-surface-border text-white text-sm font-mono focus:border-primary focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-400">
+                  If hosting on Render, paste your Render backend service URL here. The QR code and join links will automatically connect participants to this server.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 rounded-xl bg-primary hover:bg-primary-light text-white font-bold text-sm shadow-lg shadow-primary/30 transition-all"
+                >
+                  Save & Connect
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomBackendUrl('');
+                    setBackendUrlInput('');
+                    socketService.reconnect();
+                    setServerModalOpen(false);
+                    window.location.reload();
+                  }}
+                  className="px-4 py-3 rounded-xl bg-surface-card hover:bg-surface-border text-slate-400 hover:text-white text-xs font-bold transition-all"
+                >
+                  Reset
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen QR Modal */}
       <QRModal
         roomCode={code}
         eventName={room?.eventName}
